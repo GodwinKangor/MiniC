@@ -1,14 +1,13 @@
 # Author : Godwin Kangor
 # 01/26/26 
-# MiniC Frontend (Part 1)
+# MiniC Frontend (Part 1 + Part 2)
 
-This repository contains a **MiniC frontend** for Part 1 of the compiler lab.
+This repository contains a **MiniC frontend** for Part 1 and Part 2 of the compiler lab.
 It includes:
 - a **lexer** written in Flex (`scanner.l`)
 - a **parser** written in Bison (`parser.y`)
 - AST construction using the provided **AST library** (`ast/ast.c`, `ast/ast.h`)
-
-The frontend validates MiniC programs and (optionally) prints the AST.
+- semantic analysis (scope + symbol checks) in `semantic.c`
 
 ---
 
@@ -16,6 +15,7 @@ The frontend validates MiniC programs and (optionally) prints the AST.
 
 - `scanner.l` — Flex lexer
 - `parser.y` — Bison grammar + AST construction actions
+- `semantic.c` — semantic analysis (decl-before-use, no duplicate decl in same scope)
 - `ast/` — provided AST implementation
   - `ast.c`, `ast.h`
 - `parser_tests/` — test inputs
@@ -83,6 +83,11 @@ In `parser.y`, inside `main`, there is an optional AST print call (commented out
 
 Uncomment it if you want the AST printed after a successful parse.
 
+### Semantic analysis
+Semantic analysis runs automatically after parsing succeeds. A semantic error causes a non-zero exit code. The semantic checks include:
+- variable declared before use
+- no duplicate declaration in the same scope
+
 ---
 
 ## Test
@@ -98,6 +103,17 @@ Expected behavior:
 - `p_bad.c` fails (and the test target treats that failure as success)
 
 > Note: `parser_tests/main.c` is **not** a MiniC test input (it begins with `#include`), so it should not be parsed by the MiniC frontend.
+
+### Semantic analysis tests
+Run the semantic analysis tests:
+
+```bash
+make semtest
+```
+
+Expected behavior: all `*_good.c` pass, all `*_bad.c` fail
+
+Semantic tests live in `semantic_analysis_tests/`.
 
 ---
 
@@ -134,4 +150,5 @@ lex.yy.c:1194:17: warning: 'void yyunput(int, char*)' defined but not used [-Wun
       |                 ^~~~~~~
 ```
 - Part 1 enforces some constraints in the grammar (e.g., **declarations must appear at the start of a block**).
-- Additional constraints may be enforced in later parts (semantic analysis).
+- Part 2 adds semantic analysis (symbol table + scope stack).
+- Run `make semtest` to validate the semantic rules using `semantic_analysis_tests/`.
