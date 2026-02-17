@@ -13,11 +13,11 @@
 
 #define prt(x) if(x) { printf("%s\n", x); }
 
-static int g_changed = 0; // set to 1 by any pass that modifies the IR
+static int g_changed = 0; // set to 1 by any pass that modifies the IR--->(see the Makefile)
 static const char* g_mode = NULL; // NULL or "all" => run all; "cfold" => fold+DCE only; "cse" => common-subexpr+fold+DCE; "constprop" => const-prop+fold+DCE
 
 // -----------------------------
-// Helper data-structures for constant propagation (reaching stores)
+// Helper data-structures for constant propagation --->reaching stores
 // -----------------------------
 
 typedef struct {
@@ -240,8 +240,10 @@ void walkFunctions(LLVMModuleRef module){
 			if (do_constprop) {
 				constant_propagation(function);
 			}
+			int do_cse = (g_mode == NULL) || (strcmp(g_mode, "all") == 0) ||
+                         (strcmp(g_mode, "cse") == 0) || (strcmp(g_mode, "constprop") == 0);
 
-			int do_cse = (g_mode == NULL) || (strcmp(g_mode, "all") == 0) || (strcmp(g_mode, "cse") == 0);
+
 
 			// Local passes (bb-level)
 			for (LLVMBasicBlockRef bb = LLVMGetFirstBasicBlock(function);
@@ -295,18 +297,162 @@ int main(int argc, char** argv)
 	return 0;
 }
 
+// Common Subexpression Elimination(CSE)
+void Common_subexpression_elimination(LLVMBasicBlockRef bb) {
+	for (LLVMValueRef B = LLVMGetFirstInstruction(bb); B; B = LLVMGetNextInstruction(B)) {
+		LLVMOpcode opB = LLVMGetInstructionOpcode(B);
+
+
+		if (opB != LLVMLoad && opB != LLVMAdd && opB != LLVMSub && opB != LLVMMul && opB != LLVMICmp) {
+			continue;
+		}
+
+
+		if (opB == LLVMLoad) {
+			LLVMValueRef ptrB = load_ptr(B);
+
+			// Stop if a store to ptrB is seen.
+			for (LLVMValueRef A = LLVMGetPreviousInstruction(B); A; A = LLVMGetPreviousInstruction(A)) {
+				LLVMOpcode opA = LLVMGetInstructionOpcode(A);
+
+				if (opA == LLVMStore && store_ptr(A) == ptrB) {
+					break;
+				}
+
+				if (opA == LLVMLoad && load_ptr(A) == ptrB) {
+					LLVMReplaceAllUsesWith(B, A);
+					g_changed = 1;
+					break;
+				}
+			}
+
+			continue;
+		}
+
+
+		LLVMValueRef b0 = LLVMGetOperand(B, 0);
+		LLVMValueRef b1 = LLVMGetOperand(B, 1);
+
+
+		if (opB == LLVMAdd || opB == LLVMMul) {
+			if ((uintptr_t)b0 > (uintptr_t)b1) {
+				LLVMValueRef tmp = b0; b0 = b1; b1 = tmp;
+			}
+		}
+
+		unsigned predB = 0;
+		if (opB == LLVMICmp) predB = (unsigned)LLVMGetICmpPredicate(B);
+
+		for (LLVMValueRef A = LLVMGetPreviousInstruction(B); A; A = LLVMGetPreviousInstruction(A)) {
+			LLVMOpcode opA = LLVMGetInstructionOpcode(A);
+			if (opA != opB) continue;
+
+
+			if (opB == LLVMICmp) {
+				unsigned predA = (unsigned)LLVMGetICmpPredicate(A);
+				if (predA != predB) continue;
+			}
+
+			LLVMValueRef a0 = LLVMGetOperand(A, 0);
+			LLVMValueRef a1 = LLVMGetOperand(A, 1);
+
+			if (opA == LLVMAdd || opA == LLVMMul) {
+				if ((uintptr_t)a0 > (uintptr_t)a1) {
+					LLVMValueRef tmp = a0; a0 = a1; a1 = tmp;
+				}
+			}
+
+			if (a0 == b0 && a1 == b1) {
+				LLVMReplaceAllUsesWith(B, A);
+				g_changed = 1;
+				break;
+			}
+		}
+	}
+}
+// 	DCE
+void DeadCodeElimanation(LLVMBasicBlockRef bb){
+	for (LLVMValueRef instruction = LLVMGetFirstInstruction(bb); instruction; ) {
+		LLVMValueRef next = LLVMGetNextInstruction(instruction);
+		LLVMOpcode op = LLVMGetInstructionOpcode(instruction);
+
+		// Keep side-effecting
+		if (op == LLVMStore || op == LLVMCall || op == LLVMRet || op == LLVMAlloca || op == LLVMBr) {
+			instruction = next;
+			continue;
+		}
+
+		// delete it if no use
+		if (LLVMGetFirstUse(instruction) == NULL) {
+			LLVMInstructionEraseFromParent(instruction);
+			g_changed = 1;
+		}
+
+		instruction = next;
+	}
+}
+
+
+
+//ConstantFolding
+void Constfolding(LLVMBasicBlockRef bb){
+	for (LLVMValueRef instruction = LLVMGetFirstInstruction(bb); instruction;
+			instruction = LLVMGetNextInstruction(instruction)) {
+
+		LLVMOpcode op = LLVMGetInstructionOpcode(instruction);
+
+		if(op == LLVMAdd) {
+			if (LLVMIsConstant(LLVMGetOperand(instruction, 0)) &&  
+          	LLVMIsConstant(LLVMGetOperand(instruction, 1))){
+			
+			LLVMValueRef new_inst = LLVMConstAdd(LLVMGetOperand(instruction, 0), LLVMGetOperand(instruction, 1));
+			LLVMReplaceAllUsesWith(instruction,new_inst);
+			}
+			
+		} 
+		//|| op == LLVMSub ||op == LLVMMul)
+
+		if(op == LLVMAdd) {
+			if (LLVMIsConstant(LLVMGetOperand(instruction, 0)) &&  
+          	LLVMIsConstant(LLVMGetOperand(instruction, 1))){
+			
+			LLVMValueRef new_inst = LLVMConstAdd(LLVMGetOperand(instruction, 0), LLVMGetOperand(instruction, 1));
+			LLVMReplaceAllUsesWith(instruction,new_inst);
+			}
+			
+		}
+		if(op == LLVMSub) {
+			if (LLVMIsConstant(LLVMGetOperand(instruction, 0)) &&  
+          	LLVMIsConstant(LLVMGetOperand(instruction, 1))){
+			
+			LLVMValueRef new_inst = LLVMConstSub(LLVMGetOperand(instruction, 0), LLVMGetOperand(instruction, 1));
+			LLVMReplaceAllUsesWith(instruction,new_inst);
+			}
+			
+		}
+		if(op == LLVMMul) {
+			if (LLVMIsConstant(LLVMGetOperand(instruction, 0)) &&  
+          	LLVMIsConstant(LLVMGetOperand(instruction, 1))){
+			
+			LLVMValueRef new_inst = LLVMConstMul(LLVMGetOperand(instruction, 0), LLVMGetOperand(instruction, 1));
+			LLVMReplaceAllUsesWith(instruction,new_inst);
+			}
+			
+		}
+}
+}
+
 void constant_propagation(LLVMValueRef function) {
-	// Skip declarations
 	if (LLVMCountBasicBlocks(function) == 0) return;
 
-	// Collect basic blocks into an array for indexing
+
 	int nbb = 0;
 	for (LLVMBasicBlockRef bb = LLVMGetFirstBasicBlock(function); bb; bb = LLVMGetNextBasicBlock(bb)) nbb++;
 	LLVMBasicBlockRef* blocks = (LLVMBasicBlockRef*)malloc(sizeof(LLVMBasicBlockRef) * (size_t)nbb);
 	int bi = 0;
 	for (LLVMBasicBlockRef bb = LLVMGetFirstBasicBlock(function); bb; bb = LLVMGetNextBasicBlock(bb)) blocks[bi++] = bb;
 
-	// Collect all store instructions in the function
+	// collect all store instructions in the function
 	ValSet allStores; set_init(&allStores);
 	for (int i = 0; i < nbb; i++) {
 		for (LLVMValueRef inst = LLVMGetFirstInstruction(blocks[i]); inst; inst = LLVMGetNextInstruction(inst)) {
@@ -314,7 +460,7 @@ void constant_propagation(LLVMValueRef function) {
 		}
 	}
 
-	// GEN/KILL/IN/OUT per block
+	// GEN/KILL/IN/OUT 
 	ValSet* GEN = (ValSet*)malloc(sizeof(ValSet) * (size_t)nbb);
 	ValSet* KILL = (ValSet*)malloc(sizeof(ValSet) * (size_t)nbb);
 	ValSet* IN = (ValSet*)malloc(sizeof(ValSet) * (size_t)nbb);
@@ -325,7 +471,7 @@ void constant_propagation(LLVMValueRef function) {
 	IntVec* preds = (IntVec*)malloc(sizeof(IntVec) * (size_t)nbb);
 	for (int i = 0; i < nbb; i++) ivec_init(&preds[i]);
 
-	// Build predecessor lists by scanning terminators and successors
+	// Build predecessor lists 
 	for (int i = 0; i < nbb; i++) {
 		LLVMValueRef term = LLVMGetLastInstruction(blocks[i]);
 		if (!term || !LLVMIsATerminatorInst(term)) {
@@ -354,7 +500,7 @@ void constant_propagation(LLVMValueRef function) {
 		}
 	}
 
-	// Compute KILL for each block
+	// Compute KILL --> each block
 	for (int i = 0; i < nbb; i++) {
 		for (size_t g = 0; g < GEN[i].n; g++) {
 			LLVMValueRef st_in_block = GEN[i].data[g];
@@ -369,7 +515,7 @@ void constant_propagation(LLVMValueRef function) {
 	// Initialize OUT = GEN (IN empty)
 	for (int i = 0; i < nbb; i++) set_copy(&OUT[i], &GEN[i]);
 
-	// Iterate to fixpoint
+	// Iterate 
 	int changed = 1;
 	while (changed) {
 		changed = 0;
@@ -480,131 +626,6 @@ void constant_propagation(LLVMValueRef function) {
 	free(blocks);
 }
 
-// ------------------------------------------------------------
-// Common subexpression elimination (CSE)
-// - For non-load instructions (SSA, no pointers in miniC):
-//   if same opcode + same operands appeared earlier in the same BB,
-//   replace all uses of the later inst (B) with the earlier inst (A).
-// - For load instructions: only safe if there is NO intervening store
-//   to the same pointer between A and B.
-// Note: We do NOT delete B here; DCE will clean it up.
-// ------------------------------------------------------------
-void Common_subexpression_elimination(LLVMBasicBlockRef bb) {
-	for (LLVMValueRef B = LLVMGetFirstInstruction(bb); B; B = LLVMGetNextInstruction(B)) {
-		LLVMOpcode opB = LLVMGetInstructionOpcode(B);
 
-		// Only handle a small set required by the lab/tests.
-		// (Ignore stores/calls/branches/alloca/ret etc.)
-		if (opB != LLVMLoad && opB != LLVMAdd && opB != LLVMSub && opB != LLVMMul && opB != LLVMICmp) {
-			continue;
-		}
 
-		// --------- Case 1: LOAD (needs safety check) ---------
-		if (opB == LLVMLoad) {
-			LLVMValueRef ptrB = load_ptr(B);
 
-			// Walk backwards. Stop if a store to ptrB is seen.
-			for (LLVMValueRef A = LLVMGetPreviousInstruction(B); A; A = LLVMGetPreviousInstruction(A)) {
-				LLVMOpcode opA = LLVMGetInstructionOpcode(A);
-
-				if (opA == LLVMStore && store_ptr(A) == ptrB) {
-					// Memory changed; cannot reuse an earlier load.
-					break;
-				}
-
-				if (opA == LLVMLoad && load_ptr(A) == ptrB) {
-					// Safe: no intervening store to same address.
-					LLVMReplaceAllUsesWith(B, A);
-					g_changed = 1;
-					break;
-				}
-			}
-
-			continue;
-		}
-
-		// --------- Case 2: non-load (SSA => safe) ---------
-		LLVMValueRef b0 = LLVMGetOperand(B, 0);
-		LLVMValueRef b1 = LLVMGetOperand(B, 1);
-
-		// Canonicalize commutative ops so (x,y) matches (y,x)
-		if (opB == LLVMAdd || opB == LLVMMul) {
-			if ((uintptr_t)b0 > (uintptr_t)b1) {
-				LLVMValueRef tmp = b0; b0 = b1; b1 = tmp;
-			}
-		}
-
-		unsigned predB = 0;
-		if (opB == LLVMICmp) predB = (unsigned)LLVMGetICmpPredicate(B);
-
-		for (LLVMValueRef A = LLVMGetPreviousInstruction(B); A; A = LLVMGetPreviousInstruction(A)) {
-			LLVMOpcode opA = LLVMGetInstructionOpcode(A);
-			if (opA != opB) continue;
-
-			// For icmp, predicate must match too
-			if (opB == LLVMICmp) {
-				unsigned predA = (unsigned)LLVMGetICmpPredicate(A);
-				if (predA != predB) continue;
-			}
-
-			LLVMValueRef a0 = LLVMGetOperand(A, 0);
-			LLVMValueRef a1 = LLVMGetOperand(A, 1);
-
-			if (opA == LLVMAdd || opA == LLVMMul) {
-				if ((uintptr_t)a0 > (uintptr_t)a1) {
-					LLVMValueRef tmp = a0; a0 = a1; a1 = tmp;
-				}
-			}
-
-			if (a0 == b0 && a1 == b1) {
-				LLVMReplaceAllUsesWith(B, A);
-				g_changed = 1;
-				break;
-			}
-		}
-	}
-}
-
-void DeadCodeElimanation(LLVMBasicBlockRef bb){
-	for (LLVMValueRef instruction = LLVMGetFirstInstruction(bb); instruction; ) {
-		LLVMValueRef next = LLVMGetNextInstruction(instruction);
-		LLVMOpcode op = LLVMGetInstructionOpcode(instruction);
-
-		// Keep side-effecting/control-flow instructions
-		if (op == LLVMStore || op == LLVMCall || op == LLVMRet || op == LLVMAlloca || op == LLVMBr) {
-			instruction = next;
-			continue;
-		}
-
-		// If no uses, delete it
-		if (LLVMGetFirstUse(instruction) == NULL) {
-			LLVMInstructionEraseFromParent(instruction);
-			g_changed = 1;
-		}
-
-		instruction = next;
-	}
-}
-
-void Constfolding(LLVMBasicBlockRef bb){
-	for (LLVMValueRef instruction = LLVMGetFirstInstruction(bb); instruction;
-			instruction = LLVMGetNextInstruction(instruction)) {
-
-		LLVMOpcode op = LLVMGetInstructionOpcode(instruction);
-		if (!(op == LLVMAdd || op == LLVMSub || op == LLVMMul)) continue;
-
-		LLVMValueRef a = LLVMGetOperand(instruction, 0);
-		LLVMValueRef b = LLVMGetOperand(instruction, 1);
-		if (!(LLVMIsConstant(a) && LLVMIsConstant(b))) continue;
-
-		LLVMValueRef new_inst = NULL;
-		if (op == LLVMAdd) new_inst = LLVMConstAdd(a, b);
-		else if (op == LLVMSub) new_inst = LLVMConstSub(a, b);
-		else if (op == LLVMMul) new_inst = LLVMConstMul(a, b);
-
-		if (new_inst != NULL) {
-			LLVMReplaceAllUsesWith(instruction, new_inst);
-			g_changed = 1;
-		}
-	}
-}

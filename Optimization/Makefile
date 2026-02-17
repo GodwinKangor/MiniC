@@ -10,7 +10,7 @@ LLVM_LDFLAGS := $(shell $(LLVM_CONFIG) --ldflags)
 LLVM_LIBDIR  := $(shell $(LLVM_CONFIG) --libdir)
 LLVM_LIBS    := $(shell $(LLVM_CONFIG) --libs core irreader support analysis)
 
-TARGET = ../llvm_parser
+TARGET = ./llvm_parser
 SRC = llvm_parser.c
 
 TESTDIR = optimizer_test_results
