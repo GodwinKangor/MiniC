@@ -18,6 +18,7 @@ extern int yyparse();
 extern FILE *yyin;
 extern int yylineno;   /* requires %option yylineno in scanner.l */
 extern char *yytext;   /* current token text from the lexer */
+extern int semantic_check(astNode* root);
 
 void yyerror(const char *);
 
@@ -245,6 +246,11 @@ int main(int argc, char **argv) {
     if (!yyin) { perror("fopen"); return 1; }
   }
   int rc = yyparse();
+  if (rc == 0 && root) {
+  if (semantic_check(root) != 0) return 1;
+  }
+
+  return rc;
 
   // optional AST print:
   // if (rc == 0 && root) printNode(root, 0);

@@ -7,9 +7,13 @@
 !Makefile
 !scanner.l
 !parser.y
+!semantic.c
 
 !ast/
 !ast/**
 
 !parser_tests/
 !parser_tests/**
+
+!semantic_analysis_tests
+!semantic_analysis_tests/**/

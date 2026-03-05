@@ -1,0 +1,13 @@
+# Ignore everything by default
+*
+
+# But keep these tracked files/folders for the submission
+!.gitignore
+!README.md
+!Makefile
+!Core.h
+!llvm_parser.c
+
+
+!optimizer_test_results/
+!optimizer_test_results/**
