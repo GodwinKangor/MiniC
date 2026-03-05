@@ -17,3 +17,5 @@
 
 !semantic_analysis_tests
 !semantic_analysis_tests/**/
+
+!LLVM_IR_Builder/
