@@ -451,10 +451,7 @@ LLVMModuleRef buildLLVMModule(astNode *progNode, const char *moduleName) {
 
   declareRuntimeFns(ctx);
 
-  /*
-   * Pseudocode assumes one user function.
-   * TODO: iterate if/when AST supports multiple function definitions.
-   */
+
   emitFunction(progNode->prog.func, ctx);
 
   LLVMDisposeBuilder(ctx.builder);
