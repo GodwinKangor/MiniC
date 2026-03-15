@@ -19,7 +19,7 @@ using std::unordered_map;
 using std::vector;
 
 /*
- * LLVM IR Builder skeleton (lecture/pseudocode aligned)
+ * LLVM IR Builder skeleton 
  *
  * Main ideas from Pseudocode.md:
  * - emitExpr / emitStmt recursive traversal
@@ -100,7 +100,7 @@ static LLVMValueRef buildEntryAlloca(BuilderContext &ctx, const char *name) {
 
 /* Pseudocode.md (Before generating statements for the function):
  * - Walk the function body and collect all declaration names (including nested blocks).
- * - Later, emit allocas in entryBB for each collected name.
+ * - later, emit allocas in entryBB for each collected name.
  */
 static void collectDeclNames(astNode *node, vector<string> &declNames) {
   if (!node) return;
@@ -357,7 +357,7 @@ static void emitStmt(astNode *stmtNode, BuilderContext &ctx) {
 }
 
 static void declareRuntimeFns(BuilderContext &ctx) {
-  /* Pseudocode.md assumes extern runtime functions (read/print) are available. */
+
   LLVMTypeRef readTy = LLVMFunctionType(ctx.i32Ty, NULL, 0, 0);
   ctx.readFn = LLVMAddFunction(ctx.module, "read", readTy);
 
@@ -406,10 +406,7 @@ static void emitFunction(astNode *funcNode, BuilderContext &ctx) {
     LLVMBuildStore(ctx.builder, LLVMGetParam(ctx.curFunc, 0), paramPtr);
   }
 
-  /*
-   * Pre-allocate locals in entryBB.
-   * TODO: add rename+resolve prepass for shadowing to avoid duplicate alloca names.
-   */
+
   vector<string> declNames;
   collectDeclNames(funcNode->func.body, declNames);
   for (const string &name : declNames) {
