@@ -266,10 +266,6 @@ static void emitStmt(astNode *stmtNode, BuilderContext &ctx) {
 
   switch (stmtNode->stmt.type) {
     case ast_decl: {
-      /*
-       * Decls are pre-allocated in entryBB after collectDeclNames().
-       * If you add the rename/shadowing prepass, bind the renamed names here.
-       */
       if (!lookupSymbol(ctx, stmtNode->stmt.decl.name)) {
         LLVMValueRef allocaPtr = buildEntryAlloca(ctx, stmtNode->stmt.decl.name);
         insertSymbol(ctx, stmtNode->stmt.decl.name, allocaPtr);
@@ -371,7 +367,7 @@ static void declareRuntimeFns(BuilderContext &ctx) {
 }
 
 static void emitFunction(astNode *funcNode, BuilderContext &ctx) {
-  /* Pseudocode.md (Function setup order):
+  /* Pseudocode.md :
    * 1. Create function type / add function
    * 2. Create entry and ret basic blocks
    * 3. Position builder at entry
@@ -382,10 +378,7 @@ static void emitFunction(astNode *funcNode, BuilderContext &ctx) {
    */
   if (!funcNode || funcNode->type != ast_func) Print_err("emitFunction expected ast_func");
 
-  /*
-   * This AST stores at most one parameter in astFunc.param.
-   * If your frontend changes later, expand this part.
-   */
+
   LLVMTypeRef paramTys[1];
   unsigned numParams = 0;
   if (funcNode->func.param) {
