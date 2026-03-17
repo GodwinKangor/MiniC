@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
-#include "ast.h"
+#include "llvm_builder.h"
 // #include <llvm-c/Core.h>
 
 // #include <inttypes.h>
@@ -165,10 +165,10 @@ static LLVMValueRef emitCall(astNode *stmtNode, BuilderContext &ctx, bool isStmt
 
   if (string(callNode.name) == "read") {
     callee = ctx.readFn;
-    fnTy = LLVMGetElementType(LLVMTypeOf(callee));
+    fnTy = LLVMGlobalGetValueType(callee);
   } else if (string(callNode.name) == "print") {
     callee = ctx.printFn;
-    fnTy = LLVMGetElementType(LLVMTypeOf(callee));
+    fnTy = LLVMGlobalGetValueType(callee);
     if (callNode.param) {
       args[numArgs++] = emitExpr(callNode.param, ctx);
     }
@@ -228,13 +228,19 @@ static LLVMValueRef emitExpr(astNode *node, BuilderContext &ctx) {
       return LLVMBuildNeg(ctx.builder, exprVal, "");
     }
 
+    case ast_stmt:
+      if (node->stmt.type != ast_call) {
+        Print_err("unsupported statement node in emitExpr");
+      }
+      return emitCall(node, ctx, false);
+
     default:
       Print_err("unsupported AST node in emitExpr");
 	  return NULL;
   }
 }
 
-static void emitBlock(astNode *stmtNode, BuilderContext &ctx) {
+void emitBlock(astNode *stmtNode, BuilderContext &ctx) {
   /* Pseudocode.md (Shadowing):
    * - Enter block => push scope
    * - Generate statements
@@ -254,7 +260,7 @@ static void emitBlock(astNode *stmtNode, BuilderContext &ctx) {
   popScope(ctx);
 }
 
-static void emitStmt(astNode *stmtNode, BuilderContext &ctx) {
+void emitStmt(astNode *stmtNode, BuilderContext &ctx) {
   /* Pseudocode.md (statement lowering):
    * - decl   : alloca + insert symbol table (entryBB allocation strategy)
    * - asgn   : emitExpr(rhs), lookup lhs ptr, store

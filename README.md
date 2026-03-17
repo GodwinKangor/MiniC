@@ -1,154 +1,82 @@
-# Author : Godwin Kangor
-# 01/26/26 
-# MiniC Frontend (Part 1 + Part 2)
+# MiniC Compiler Lab
 
-This repository contains a **MiniC frontend** for Part 1 and Part 2 of the compiler lab.
-It includes:
-- a **lexer** written in Flex (`scanner.l`)
-- a **parser** written in Bison (`parser.y`)
-- AST construction using the provided **AST library** (`ast/ast.c`, `ast/ast.h`)
-- semantic analysis (scope + symbol checks) in `semantic.c`
+This directory now serves as the top-level workspace for the MiniC pipeline:
 
----
+- frontend parsing and semantic analysis at the repository root
+- LLVM IR generation in `LLVM_IR_Builder/`
+- LLVM IR optimization in `Optimization/`
+- x86 assembly generation in `Assembly_Code_Gen/`
 
-## Directory/Lab structure
+The root `Makefile` ties those stages together so `make`, `make test`, and `make test-pipeline` can be run from one place.
 
-- `scanner.l` — Flex lexer
-- `parser.y` — Bison grammar + AST construction actions
-- `semantic.c` — semantic analysis (decl-before-use, no duplicate decl in same scope)
-- `ast/` — provided AST implementation
-  - `ast.c`, `ast.h`
-- `parser_tests/` — test inputs
-  - `p1.c`–`p5.c` should parse successfully
-  - `p_bad.c` should fail (intentionally invalid)
-- `Makefile` — build + test automation
+## Directory Layout
 
-Generated files (created by the build):
-- `y.tab.c`, `y.tab.h` — output of Bison
-- `lex.yy.c` — output of Flex
-- `minic_frontend.out` — compiled frontend executable
+- `scanner.l`, `parser.y`, `semantic.c`:
+  frontend lexer, parser, and semantic checks
+- `ast/`:
+  shared AST implementation used by the frontend
+- `parser_tests/`:
+  parser-only MiniC inputs
+- `semantic_analysis_tests/`:
+  semantic success/failure cases
+- `LLVM_IR_Builder/`:
+  Part 2 IR builder sources, tests, and local build outputs
+- `Optimization/`:
+  optimization pass implementation and expected `.ll` results
+- `Assembly_Code_Gen/`:
+  assembly generator sources, tests, and local build outputs
+- `build/`:
+  generated root-level parser files and pipeline artifacts
+- `Frontend/`:
+  older frontend-only copy kept as local reference material
+- `MiniC_tests/`:
+  extra sample C programs used across stages
 
----
+## Build Outputs
 
-## Requirements
+Generated files are kept out of the source layout as much as possible:
 
-On the target machine ,you need:
-- `flex`
-- `bison`
-- `g++` (C++17)
-- standard build tools (`make`)
+- root frontend artifacts go in `build/` and the `minic_frontend` executable
+- IR builder artifacts stay under `LLVM_IR_Builder/build/`
+- optimizer scratch output stays inside `Optimization/`
+- assembly outputs stay under `Assembly_Code_Gen/build/`
 
-> Note: We compile with **g++** because the parser and `%union` use C++ types (e.g., `std::vector`).
+Use `make clean` at the repository root to remove the standard generated artifacts.
 
----
+## Common Commands
 
-## Build
-
-From the repository directory:
+Build the full pipeline:
 
 ```bash
 make
 ```
 
-This runs:
-- `bison -d -o y.tab.c parser.y`
-- `flex -o lex.yy.c scanner.l`
-- `g++ -std=c++17 ... -o minic_frontend.out`
-
-Clean build artifacts:
-
-```bash
-make clean
-```
-
----
-
-## Run
-
-Parse a MiniC file:
-
-```bash
-./minic_frontend.out parser_tests/p1.c
-```
-
-- Exit code `0` → parse success
-- Non-zero → parse failure (see error message)
-
-### Optional: print the AST
-In `parser.y`, inside `main`, there is an optional AST print call (commented out):
-
-```c
-/* if (rc == 0 && root) printNode(root, 0); */
-```
-
-Uncomment it if you want the AST printed after a successful parse.
-
-### Semantic analysis
-Semantic analysis runs automatically after parsing succeeds. A semantic error causes a non-zero exit code. The semantic checks include:
-- variable declared before use
-- no duplicate declaration in the same scope
-
----
-
-## Test
-
-Run the provided parser tests:
+Run all stage tests:
 
 ```bash
 make test
 ```
 
-Expected behavior:
-- `p1.c`–`p5.c` parse successfully
-- `p_bad.c` fails (and the test target treats that failure as success)
+Run only the frontend parser tests:
 
-> Note: `parser_tests/main.c` is **not** a MiniC test input (it begins with `#include`), so it should not be parsed by the MiniC frontend.
+```bash
+make test-frontend
+```
 
-### Semantic analysis tests
-Run the semantic analysis tests:
+Run semantic analysis tests:
 
 ```bash
 make semtest
 ```
 
-Expected behavior: all `*_good.c` pass, all `*_bad.c` fail
-
-Semantic tests live in `semantic_analysis_tests/`.
-
----
-
-## Helpful debugging commands
-
-Generate Bison’s state report (`parser.output`) to inspect conflicts:
+Run the end-to-end IR -> optimized IR -> assembly pipeline:
 
 ```bash
-bison -v -d -o y.tab.c parser.y
+make test-pipeline
 ```
-
-Rebuild from scratch:
-
-```bash
-make clean && make
-```
-
----
 
 ## Notes
 
-- A single shift/reduce conflict warning from Bison is expected due to the classic **dangling else** ambiguity.
-On babylon5, a successful build looks like:
-
-```text
-f006vzt@babylon5:~/compiler/MiniC$ make
-bison -d -o y.tab.c parser.y
-parser.y: warning: 1 shift/reduce conflict [-Wconflicts-sr]
-parser.y: note: rerun with option '-Wcounterexamples' to generate conflict counterexamples
-flex -o lex.yy.c scanner.l
-g++ -std=c++17 -Wall -Wextra -O0 -g -Iast y.tab.c lex.yy.c ast/ast.c -lfl -o minic_frontend.out
-lex.yy.c:1194:17: warning: 'void yyunput(int, char*)' defined but not used [-Wunused-function]
-  1194 |     static void yyunput (int c, char * yy_bp )
-      |                 ^~~~~~~
-```
-- Part 1 enforces some constraints in the grammar (e.g., **declarations must appear at the start of a block**).
-- Part 2 adds semantic analysis (symbol table + scope stack).
-- Run `make semtest` to validate the semantic rules using `semantic_analysis_tests/`.
+- The frontend executable produced by the root `Makefile` is `minic_frontend`.
+- A single Bison shift/reduce conflict is expected because of the classic dangling-`else` ambiguity.
+- `parser_tests/main.c` is intentionally not treated as a MiniC parser test input.
