@@ -1,21 +1,37 @@
-# Ignore everything by default
+# Ignore everything by default, then opt in the source tree we want to keep.
 *
 
-# But keep these tracked files/folders for the submission
+# Top-level source and docs
 !.gitignore
 !README.md
 !Makefile
 !scanner.l
 !parser.y
 !semantic.c
+!lex_yacc_part1_notes.md
 
+# Frontend source
 !ast/
 !ast/**
-
 !parser_tests/
 !parser_tests/**
+!semantic_analysis_tests/
+!semantic_analysis_tests/**
 
-!semantic_analysis_tests
-!semantic_analysis_tests/**/
-
+# Tracked subprojects
 !LLVM_IR_Builder/
+!LLVM_IR_Builder/**
+!Optimization/
+!Optimization/**
+
+# Local-only or archived directories that should stay out of the repo
+Frontend/
+Assembly_Code_Gen/
+MiniC_tests/
+
+# Generated artifacts
+build/
+minic_frontend
+minic_frontend.out
+minic_codegen.out
+parser.output
