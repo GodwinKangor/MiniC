@@ -1,0 +1,16 @@
+# Ignore everything by default
+*
+
+# But keep these tracked files/folders for the submission
+!.gitignore
+!README.md
+!Makefile
+!scanner.l
+!parser.y
+!semantic.c
+
+!ast/
+!ast/**
+
+
+

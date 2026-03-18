@@ -23,10 +23,12 @@
 !LLVM_IR_Builder/**
 !Optimization/
 !Optimization/**
+!Frontend/
+!Frontend/**
+!Assembly_Code_Gen/
+!Assembly_Code_Gen/**
 
 # Local-only or archived directories that should stay out of the repo
-Frontend/
-Assembly_Code_Gen/
 MiniC_tests/
 
 # Generated artifacts
@@ -35,3 +37,18 @@ minic_frontend
 minic_frontend.out
 minic_codegen.out
 parser.output
+Frontend/build/
+Frontend/lex.yy.c
+Frontend/y.tab.c
+Frontend/y.tab.h
+Frontend/minic_frontend.out
+Frontend/parser.output
+Assembly_Code_Gen/build/
+Assembly_Code_Gen/*.o
+Assembly_Code_Gen/*.out
+Assembly_Code_Gen/lex.yy.c
+Assembly_Code_Gen/lex.yy.txt
+Assembly_Code_Gen/y.tab.c
+Assembly_Code_Gen/y.tab.h
+Assembly_Code_Gen/assembly_gen_tests/*.s
+Assembly_Code_Gen/assembly_gen_tests/*.run
