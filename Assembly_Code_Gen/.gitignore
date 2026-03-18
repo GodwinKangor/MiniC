@@ -1,0 +1,9 @@
+build/
+*.o
+*.out
+lex.yy.c
+lex.yy.txt
+y.tab.c
+y.tab.h
+assembly_gen_tests/*.s
+assembly_gen_tests/*.run

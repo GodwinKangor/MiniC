@@ -1,0 +1,7 @@
+1. Use your compiler to generate assembly for each file (other than main.c).
+2. Compiler you assembly using the command given below:
+	  clang -m32 filename.s main.c
+3. Run a.out to test your code. You can manually change the parameter that
+you pass to your function in main.c to test different cases.
+
+4. Note that max_n and sum_n call read function in a loop. So enter integer values when you run the code.

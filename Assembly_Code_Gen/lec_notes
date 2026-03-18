@@ -1,0 +1,36 @@
+Register allocation: Linear scan
+
+Reserved registers: 
+	eip: Instruction pointer
+	ebp: Function frame base pointer (this is where the memory for each function call starts)
+	esp: Stack pointer 
+	esi and edi: We won't use them, used in string operations and sometimes general purpose
+
+Available registers: eax, ebx, ecx, edx
+
+Return value register: eax
+
+Spill register: eax
+
+Registers to be preserved by the caller: eax, ecx, edx (push on to the stack before call and pop after the call)
+Registers preserved by the callee: ebx (all others)
+
+Parameter passing:
+Caller: pushes all parameters on to the stack from last to first
+Callee: copies all the parameters from the caller's stack frame to local copy
+
+
+Understanding stack: 
+	relevant registers: ebp and esp 
+
+What do leave, call and return do:
+	leave: Restores the value of ebp and esp to what they were at the 
+				 start of the function 
+	call: 1) Copies return address (instruction after call)
+				2) Moves eip to function that is being called
+	return:	Sets eip to return address
+[Special note: some registers have to be preserved for example: ebx]
+
+
+Important note: We will be creating 32-bit assembly code, so remember to
+compile final assembly code and main.c with -m32 flag.
